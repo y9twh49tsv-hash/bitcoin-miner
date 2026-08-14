@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AZD Bitcoin Miner</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-mark">₿</div>
+        <div class="brand-name">AZD <span class="accent">BITCOIN MINER</span></div>
+    </div>
+    <div class="topbar-spacer"></div>
+    <div class="connection">
+        <span class="dot is-idle" id="api-dot"></span>
+        <span class="connection-text" id="api-status">connecting…</span>
+    </div>
+</header>
+
+<main class="page">
+
+    <!-- Shown whenever the GPU backend is not compiled in. -->
+    <div class="banner is-hidden" id="cuda-banner">
+        <span class="banner-icon">⚠</span>
+        <span>
+            <strong>CUDA backend not compiled.</strong>
+            GPU hashrate, temperature, power and utilization are unavailable and shown as
+            <strong>N/A</strong> — they are never estimated. Rebuild with
+            <code>-DAZD_ENABLE_CUDA=ON</code> on a machine with the NVIDIA CUDA Toolkit to enable
+            the GPU backend.
+        </span>
+    </div>
+
+    <!-- ---------------------------------------------------------- status -->
+    <h2 class="section-title">Mining</h2>
+    <section class="grid">
+        <div class="card is-accent">
+            <div class="card-label"><span class="dot is-idle" id="mining-dot"></span>Mining Status</div>
+            <div class="card-value" id="mining-status">—</div>
+            <div class="card-sub" id="mining-backend">backend: —</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Hashrate</div>
+            <div class="card-value" id="hashrate">—</div>
+            <div class="card-sub" id="hashrate-detail">10s / 60s / avg</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Total Hashes</div>
+            <div class="card-value" id="total-hashes">0</div>
+            <div class="card-sub" id="session-hashes">this session</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Session Time</div>
+            <div class="card-value" id="session-time">00:00:00</div>
+            <div class="card-sub" id="uptime">uptime —</div>
+        </div>
+    </section>
+
+    <!-- ------------------------------------------------------------- gpu -->
+    <h2 class="section-title">GPU</h2>
+    <section class="grid">
+        <div class="card">
+            <div class="card-label">GPU</div>
+            <div class="card-value is-na" id="gpu-name">N/A</div>
+            <div class="card-sub" id="gpu-detail">no GPU backend</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Temperature</div>
+            <div class="card-value is-na" id="gpu-temp">N/A</div>
+            <div class="card-sub" id="gpu-temp-limits">warn — / stop —</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Power</div>
+            <div class="card-value is-na" id="gpu-power">N/A</div>
+            <div class="card-sub">measured via NVML</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">GPU Utilization</div>
+            <div class="card-value is-na" id="gpu-util">N/A</div>
+            <div class="card-sub">measured via NVML</div>
+        </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ pool -->
+    <h2 class="section-title">Pool</h2>
+    <section class="grid">
+        <div class="card">
+            <div class="card-label"><span class="dot is-idle" id="pool-dot"></span>Pool</div>
+            <div class="card-value is-na" id="pool-state">N/A</div>
+            <div class="card-sub" id="pool-url">not configured</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Accepted Shares</div>
+            <div class="card-value" id="accepted">0</div>
+            <div class="card-sub" id="accept-rate">—</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Rejected Shares</div>
+            <div class="card-value" id="rejected">0</div>
+            <div class="card-sub" id="reject-reason">—</div>
+        </div>
+
+        <div class="card">
+            <div class="card-label">Best Difficulty</div>
+            <div class="card-value is-na" id="best-difficulty">N/A</div>
+            <div class="card-sub" id="pool-difficulty">pool difficulty —</div>
+        </div>
+    </section>
+
+    <!-- -------------------------------------------------------- controls -->
+    <div class="panels">
+        <div class="panel">
+            <div class="panel-title">Controls</div>
+            <div class="controls">
+                <div class="button-row">
+                    <button class="btn btn-start" id="btn-start">Start Mining</button>
+                    <button class="btn btn-stop" id="btn-stop">Stop Mining</button>
+                </div>
+                <p class="hint" id="control-hint">
+                    The miner starts stopped and mines only while the status says
+                    <strong>running</strong>.
+                </p>
+                <div class="form-message" id="control-message"></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-title">Pool settings</div>
+            <form id="pool-form" autocomplete="off">
+                <div class="field-row">
+                    <div class="field">
+                        <label for="pool-host">Host</label>
+                        <input type="text" id="pool-host" name="host"
+                               placeholder="stratum.example.com" spellcheck="false">
+                    </div>
+                    <div class="field">
+                        <label for="pool-port">Port</label>
+                        <input type="number" id="pool-port" name="port" min="1" max="65535"
+                               placeholder="3333">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="pool-username">Username (wallet.worker)</label>
+                    <input type="text" id="pool-username" name="username"
+                           placeholder="yourwallet.worker1" spellcheck="false">
+                    <div class="field-note">
+                        Your own payout address. Nothing is baked into this software.
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="pool-password">Password</label>
+                    <input type="password" id="pool-password" name="password"
+                           placeholder="x" autocomplete="new-password">
+                    <div class="field-note" id="password-note">
+                        Write-only: the password is never sent back by the API. Leave blank to
+                        keep the current one.
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-secondary">Save settings</button>
+                <div class="form-message" id="pool-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p>
+            <strong>No fabricated data.</strong> Every value on this page is measured by the
+            miner. Anything that cannot be measured — GPU telemetry without CUDA, a share
+            difficulty before any share was found — is shown as <strong>N/A</strong>, never as a
+            placeholder number.
+        </p>
+        <p>
+            GPU Bitcoin mining is technically possible, but dedicated SHA-256 ASIC miners are
+            substantially more efficient. This project makes no profitability claims.
+        </p>
+        <p id="version-line">AZD Bitcoin Miner — local dashboard on 127.0.0.1</p>
+    </footer>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

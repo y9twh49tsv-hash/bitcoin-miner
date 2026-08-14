@@ -1,0 +1,57 @@
+# ---- Build output ----
+build/
+build-*/
+out/
+cmake-build-*/
+Testing/
+CMakeFiles/
+CMakeCache.txt
+CTestTestfile.cmake
+install_manifest.txt
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+*.dll
+*.exe
+*.pdb
+*.ilk
+*.exp
+*.ninja_deps
+*.ninja_log
+
+# ---- Real configuration / credentials (NEVER COMMIT) ----
+# Only config/config.example.json is tracked.
+config/config.json
+config/*.local.json
+config/secrets*.json
+*.secret
+*.secrets
+.env
+.env.*
+credentials.json
+wallet.txt
+
+# ---- IDE / editor ----
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.sln
+*.vcxproj*
+*.swp
+*~
+.DS_Store
+
+# ---- Python helper leftovers ----
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ---- Logs ----
+*.log
+logs/

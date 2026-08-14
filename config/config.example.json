@@ -1,0 +1,21 @@
+{
+  "miner": {
+    "name": "AZD-PC-01",
+    "device": 0,
+    "cpuThreads": 1
+  },
+  "pool": {
+    "host": "",
+    "port": 3333,
+    "username": "",
+    "password": "x"
+  },
+  "gpu": {
+    "temperatureWarning": 75,
+    "temperatureStop": 85
+  },
+  "dashboard": {
+    "host": "127.0.0.1",
+    "port": 8080
+  }
+}
