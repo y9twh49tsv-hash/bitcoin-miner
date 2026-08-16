@@ -180,6 +180,17 @@ TEST("starting without a configured pool fails loudly and does not mine") {
     CHECK_EQ(miner.statistics().totalHashes(), uint64_t(0));
     CHECK_EQ(miner.statistics().acceptedShares(), uint64_t(0));
     CHECK_EQ(miner.statistics().hashrate10s(), 0.0);
+
+    // The miner must report itself as STOPPED, not ERROR. Refusing to start
+    // without a pool is correct behaviour, not a malfunction, and the state
+    // must not stick at "error" for a miner that is simply unconfigured.
+    CHECK(miner.statistics().miningState() == azd::mining::MiningState::Stopped);
+    CHECK_EQ(miner.statistics().toJson()["miningState"].asString(), std::string("stopped"));
+
+    // Asking again must behave identically -- no state accumulates.
+    const HttpResponse again = server.handleRequest(makeRequest("POST", "/api/miner/start"));
+    CHECK_EQ(again.status, 409);
+    CHECK_EQ(miner.statistics().toJson()["miningState"].asString(), std::string("stopped"));
 }
 
 TEST("stop is idempotent and safe when never started") {

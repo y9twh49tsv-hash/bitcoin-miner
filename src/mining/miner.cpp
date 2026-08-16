@@ -139,7 +139,12 @@ bool MinerController::start(std::string& error) {
         error =
             "no pool configured: set pool.host, pool.port and pool.username before starting. "
             "This miner never mines to a built-in address.";
-        stats_.setMiningState(MiningState::Error);
+        // NOT an error state. Nothing was started and nothing broke -- the
+        // miner is simply still stopped, which is exactly what the status
+        // should say. The reason is returned to the caller, which is where a
+        // rejected start request belongs. Reporting a sticky "error" here
+        // would misdescribe a perfectly healthy, unconfigured miner.
+        stats_.setMiningState(MiningState::Stopped);
         return false;
     }
 
