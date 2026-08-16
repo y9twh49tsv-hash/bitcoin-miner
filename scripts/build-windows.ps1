@@ -55,6 +55,45 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $BuildDir = Join-Path $ProjectRoot "build"
 
+<#
+.SYNOPSIS
+    Locates cmake.exe without requiring a Developer PowerShell.
+
+.DESCRIPTION
+    Looks in three places, in order of preference:
+      1. PATH (a standalone install, or a Developer PowerShell)
+      2. The Visual Studio installation, found via vswhere.exe -- VS ships its
+         own CMake but only exposes it inside a Developer PowerShell
+      3. The standard standalone install directories
+
+    Returns the path to cmake.exe, or $null when nothing was found.
+#>
+function Find-CMakeExecutable {
+    $onPath = Get-Command cmake -ErrorAction SilentlyContinue
+    if ($onPath) { return "cmake" }
+
+    # vswhere.exe is installed at a fixed location by every VS 2017+ installer.
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+        $installPath = & $vswhere -latest -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
+            -property installationPath 2>$null
+        if ($installPath) {
+            $bundled = Join-Path $installPath `
+                "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+            if (Test-Path $bundled) { return $bundled }
+        }
+    }
+
+    foreach ($candidate in @(
+            (Join-Path $env:ProgramFiles "CMake\bin\cmake.exe"),
+            (Join-Path ${env:ProgramFiles(x86)} "CMake\bin\cmake.exe"))) {
+        if (Test-Path $candidate) { return $candidate }
+    }
+
+    return $null
+}
+
 Push-Location $ProjectRoot
 try {
     Write-Host "==============================================" -ForegroundColor DarkYellow
@@ -63,8 +102,38 @@ try {
     Write-Host ""
 
     # --- Prerequisites ----------------------------------------------------
-    if (-not (Get-Command cmake -ErrorAction SilentlyContinue)) {
-        throw "cmake was not found on PATH. Install CMake, or run this from a Visual Studio Developer PowerShell."
+    #
+    # CMake ships inside Visual Studio but is not on PATH in a normal
+    # PowerShell -- only in a "Developer PowerShell". Rather than making that a
+    # precondition the user has to know about, locate it ourselves.
+    $cmake = Find-CMakeExecutable
+    if (-not $cmake) {
+        throw @"
+CMake was not found.
+
+Checked: PATH, the Visual Studio installation (via vswhere) and the standard
+standalone install locations.
+
+Fix it with ONE of these:
+
+  1. Install Visual Studio 2022 (Community is free) and tick the workload
+     "Desktop development with C++". That includes both the compiler and CMake.
+     https://visualstudio.microsoft.com/downloads/
+
+  2. If Visual Studio IS installed, open "Developer PowerShell for VS 2022"
+     from the Start menu and run this script there.
+
+  3. Install CMake standalone and tick "Add CMake to the system PATH".
+     https://cmake.org/download/
+"@
+    }
+
+    # ctest lives next to cmake.
+    $ctest = Join-Path (Split-Path -Parent $cmake) "ctest.exe"
+    if (-not (Test-Path $ctest)) { $ctest = "ctest" }
+
+    if ($cmake -ne "cmake") {
+        Write-Host "Using CMake: $cmake" -ForegroundColor DarkGray
     }
 
     if ($Nvml) { $Cuda = $true }
@@ -107,20 +176,20 @@ and re-open PowerShell, or run without -Cuda to build the CPU-only version.
     }
 
     Write-Host "--- Configure ---" -ForegroundColor DarkYellow
-    & cmake @cmakeArgs
+    & $cmake @cmakeArgs
     if ($LASTEXITCODE -ne 0) { throw "CMake configuration failed." }
 
     # --- Build ------------------------------------------------------------
     Write-Host ""
     Write-Host "--- Build ($Config) ---" -ForegroundColor DarkYellow
-    & cmake --build build --config $Config --parallel
+    & $cmake --build build --config $Config --parallel
     if ($LASTEXITCODE -ne 0) { throw "Build failed." }
 
     # --- Test -------------------------------------------------------------
     if (-not $SkipTests) {
         Write-Host ""
         Write-Host "--- Test ---" -ForegroundColor DarkYellow
-        & ctest --test-dir build --build-config $Config --output-on-failure
+        & $ctest --test-dir build --build-config $Config --output-on-failure
         if ($LASTEXITCODE -ne 0) { throw "Tests failed." }
     }
 
