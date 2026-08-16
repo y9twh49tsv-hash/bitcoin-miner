@@ -65,11 +65,29 @@ TEST("array access is bounds checked") {
 }
 
 TEST("handles string escapes") {
-    CHECK_EQ(parse(R"("a\"b")").asString(), std::string("a\"b"));
-    CHECK_EQ(parse(R"("line\nbreak")").asString(), std::string("line\nbreak"));
-    CHECK_EQ(parse(R"("tab\there")").asString(), std::string("tab\there"));
-    CHECK_EQ(parse(R"("back\\slash")").asString(), std::string("back\\slash"));
-    CHECK_EQ(parse(R"("A")").asString(), std::string("A"));
+    // The raw string literals are hoisted into variables on purpose.
+    //
+    // MSVC's legacy preprocessor mis-tokenizes a raw string that contains \"
+    // when it is passed as a MACRO argument: it treats the backslash-quote as
+    // an escaped quote, ends the literal early, and then trips over the
+    // remaining characters (C2017 "illegal escape sequence" plus C3688
+    // "invalid literal suffix"). Assigning the literal to a variable first
+    // keeps the preprocessor out of it entirely.
+    //
+    // Compiling with /Zc:preprocessor would also fix it, but the project has
+    // to build on a plain toolchain without extra switches, so the tests stay
+    // preprocessor-agnostic instead.
+    const char* quotedJson = R"("a\"b")";
+    const char* newlineJson = R"("line\nbreak")";
+    const char* tabJson = R"("tab\there")";
+    const char* backslashJson = R"("back\\slash")";
+    const char* plainJson = R"("A")";
+
+    CHECK_EQ(parse(quotedJson).asString(), std::string("a\"b"));
+    CHECK_EQ(parse(newlineJson).asString(), std::string("line\nbreak"));
+    CHECK_EQ(parse(tabJson).asString(), std::string("tab\there"));
+    CHECK_EQ(parse(backslashJson).asString(), std::string("back\\slash"));
+    CHECK_EQ(parse(plainJson).asString(), std::string("A"));
 }
 
 TEST("rejects malformed documents") {
