@@ -55,44 +55,7 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $BuildDir = Join-Path $ProjectRoot "build"
 
-<#
-.SYNOPSIS
-    Locates cmake.exe without requiring a Developer PowerShell.
-
-.DESCRIPTION
-    Looks in three places, in order of preference:
-      1. PATH (a standalone install, or a Developer PowerShell)
-      2. The Visual Studio installation, found via vswhere.exe -- VS ships its
-         own CMake but only exposes it inside a Developer PowerShell
-      3. The standard standalone install directories
-
-    Returns the path to cmake.exe, or $null when nothing was found.
-#>
-function Find-CMakeExecutable {
-    $onPath = Get-Command cmake -ErrorAction SilentlyContinue
-    if ($onPath) { return "cmake" }
-
-    # vswhere.exe is installed at a fixed location by every VS 2017+ installer.
-    $vswhere = Join-Path ${env:ProgramFiles(x86)} "Microsoft Visual Studio\Installer\vswhere.exe"
-    if (Test-Path $vswhere) {
-        $installPath = & $vswhere -latest -products * `
-            -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-            -property installationPath 2>$null
-        if ($installPath) {
-            $bundled = Join-Path $installPath `
-                "Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
-            if (Test-Path $bundled) { return $bundled }
-        }
-    }
-
-    foreach ($candidate in @(
-            (Join-Path $env:ProgramFiles "CMake\bin\cmake.exe"),
-            (Join-Path ${env:ProgramFiles(x86)} "CMake\bin\cmake.exe"))) {
-        if (Test-Path $candidate) { return $candidate }
-    }
-
-    return $null
-}
+. (Join-Path $PSScriptRoot "windows-common.ps1")
 
 Push-Location $ProjectRoot
 try {
@@ -114,23 +77,15 @@ CMake was not found.
 Checked: PATH, the Visual Studio installation (via vswhere) and the standard
 standalone install locations.
 
-Fix it with ONE of these:
+Run the setup checker, which reports every missing prerequisite and can
+install them for you:
 
-  1. Install Visual Studio 2022 (Community is free) and tick the workload
-     "Desktop development with C++". That includes both the compiler and CMake.
-     https://visualstudio.microsoft.com/downloads/
+    .\scripts\setup-windows.ps1
 
-  2. If Visual Studio IS installed, open "Developer PowerShell for VS 2022"
-     from the Start menu and run this script there.
-
-  3. Install CMake standalone and tick "Add CMake to the system PATH".
-     https://cmake.org/download/
 "@
     }
 
-    # ctest lives next to cmake.
-    $ctest = Join-Path (Split-Path -Parent $cmake) "ctest.exe"
-    if (-not (Test-Path $ctest)) { $ctest = "ctest" }
+    $ctest = Find-CTestExecutable -CMakePath $cmake
 
     if ($cmake -ne "cmake") {
         Write-Host "Using CMake: $cmake" -ForegroundColor DarkGray
